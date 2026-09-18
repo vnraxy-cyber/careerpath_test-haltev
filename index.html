@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
 
-<!-- ============ NAVBAR ============ -->
 <main>
 <!-- ============ HOME VIEW ============ -->
 <section id="view-home">
@@ -20,27 +20,19 @@
   <div class="hero">
     <div class="container hero-grid">
       <div>
-        <div class="eyebrow">Career Path Digital</div>
+        <div class="eyebrow"><span class="eyebrow-dot"></span>Career Path Digital</div>
         <h1>Temukan Arah Karier <span class="hl">Digital</span> yang Tepat untukmu</h1>
         <p class="lead">Kenali minat, potensi, dan kecenderunganmu di dunia digital untuk menemukan bidang yang paling sesuai dengan kemampuan dan tujuanmu.</p>
         <button class="btn btn-primary" onclick="startQuiz()">Tes Career Path Digital Anda →</button>
       </div>
       <div class="hero-visual">
         <div class="hero-blob"></div>
-        <svg class="hero-figure" viewBox="0 0 240 320" fill="none">
-          <ellipse cx="120" cy="300" rx="80" ry="14" fill="#DCEBFB"/>
-          <rect x="55" y="120" width="130" height="150" rx="30" fill="#0B2159"/>
-          <circle cx="120" cy="80" r="52" fill="#F3C9A3"/>
-          <path d="M68 70C68 40 92 20 120 20C148 20 172 40 172 70V78H68V70Z" fill="#0B2159"/>
-          <rect x="95" y="215" width="90" height="60" rx="8" fill="#E7F2FE" stroke="#0B6FF2" stroke-width="3"/>
-          <rect x="105" y="228" width="70" height="6" rx="3" fill="#0B6FF2"/>
-          <rect x="105" y="242" width="46" height="6" rx="3" fill="#9FCBF9"/>
-        </svg>
-        <div class="float-chip chip-1"><span class="ic" style="background:#E7F0FF;">💻</span>Web Developer</div>
-        <div class="float-chip chip-2"><span class="ic" style="background:#EAF7EE;">📊</span>Data Analyst</div>
-        <div class="float-chip chip-3"><span class="ic" style="background:#F1ECFE;">🧬</span>Data Scientist</div>
-        <div class="float-chip chip-4"><span class="ic" style="background:#FFF1E4;">📣</span>Digital Marketing</div>
-        <div class="float-chip chip-5"><span class="ic" style="background:#E8F1FF;">🛡️</span>Cyber Security</div>
+        <img class="hero-figure" src="assets/assets_test2.png" alt="Perempuan bekerja menggunakan laptop">
+        <div class="float-chip chip-1"><span class="ic" style="background:#E7F0FF;"><img src="assets/icon_webdevelop.png" alt=""></span>Web Developer</div>
+        <div class="float-chip chip-2"><span class="ic" style="background:#EAF7EE;"><img src="assets/icon_data.png" alt=""></span>Data Analyst</div>
+        <div class="float-chip chip-3"><span class="ic" style="background:#F1ECFE;"><img src="assets/icon_datasince.png" alt=""></span>Data Scientist</div>
+        <div class="float-chip chip-4"><span class="ic" style="background:#FFF1E4;"><img src="assets/icon_digital.png" alt=""></span>Digital Marketing</div>
+        <div class="float-chip chip-5"><span class="ic" style="background:#E8F1FF;"><img src="assets/icon_cyber.png" alt=""></span>Cyber Security</div>
       </div>
     </div>
   </div>
@@ -48,12 +40,19 @@
   <!-- TRUST -->
   <div class="trust container">
     <p>Dipercaya oleh pelajar dan profesional dari berbagai institusi</p>
-    <div class="trust-logos">
-      <span>🟢 Gojek</span>
-      <span>🛍️ Tokopedia</span>
-      <span>🛒 Shopee</span>
-      <span>✈️ Traveloka</span>
-      <span>🏦 BCA</span>
+    <div class="trust-logos" aria-label="Logo institusi yang mempercayai Haltev">
+      <div class="trust-track">
+        <span><img src="https://cdn.simpleicons.org/gojek/00AA13" alt="Gojek"></span>
+        <span><img src="https://cdn.simpleicons.org/tokopedia/42B549" alt="Tokopedia"></span>
+        <span><img src="https://cdn.simpleicons.org/shopee/EE4D2D" alt="Shopee"></span>
+        <span><img src="https://cdn.simpleicons.org/traveloka/00AEEF" alt="Traveloka"></span>
+        <span><img src="https://cdn.simpleicons.org/bankbca/005BAC" alt="BCA"></span>
+        <span aria-hidden="true"><img src="https://cdn.simpleicons.org/gojek/00AA13" alt=""></span>
+        <span aria-hidden="true"><img src="https://cdn.simpleicons.org/tokopedia/42B549" alt=""></span>
+        <span aria-hidden="true"><img src="https://cdn.simpleicons.org/shopee/EE4D2D" alt=""></span>
+        <span aria-hidden="true"><img src="https://cdn.simpleicons.org/traveloka/00AEEF" alt=""></span>
+        <span aria-hidden="true"><img src="https://cdn.simpleicons.org/bankbca/005BAC" alt=""></span>
+      </div>
     </div>
   </div>
 
@@ -61,26 +60,30 @@
   <div class="section" id="why">
     <div class="container">
       <div class="section-head">
-        <h2>Kenapa Career Path Digital Itu Penting?</h2>
+        <div><span class="section-kicker">Mulai dari dirimu</span><h2>Kenapa Career Path Digital Itu Penting?</h2></div>
       </div>
       <div class="why-grid">
         <div class="why-card">
-          <div class="ic" style="background:#FDEBEC;">🎯</div>
+          <span class="why-step">01</span>
+          <div class="ic icon-target" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="5" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="1.8" fill="currentColor"/><path d="M21 11l5-5M22 6h4v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <h3>Mengenali Potensi Diri</h3>
           <p>Kenali minat dan bakatmu dengan lebih jelas.</p>
         </div>
         <div class="why-card">
-          <div class="ic" style="background:#E9F0FF;">🧭</div>
+          <span class="why-step">02</span>
+          <div class="ic icon-compass" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="11" stroke="currentColor" stroke-width="2.2"/><path d="M20.5 11.5l-3.2 6.3-6.3 3.2 3.2-6.3 6.3-3.2Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/></svg></div>
           <h3>Memilih Arah yang Tepat</h3>
           <p>Hindari salah jurusan atau pekerjaan yang tidak sesuai.</p>
         </div>
         <div class="why-card">
-          <div class="ic" style="background:#E9F2FF;">📘</div>
+          <span class="why-step">03</span>
+          <div class="ic icon-book" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7.5A3.5 3.5 0 0 1 10.5 4H25v21H10.5A3.5 3.5 0 0 0 7 28V7.5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M7 7.5A3.5 3.5 0 0 1 10.5 11H25M7 28a3.5 3.5 0 0 1 3.5-3H25" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg></div>
           <h3>Belajar Lebih Terarah</h3>
           <p>Fokus pada skill yang benar-benar dibutuhkan di industri.</p>
         </div>
         <div class="why-card">
-          <div class="ic" style="background:#EAF7EE;">📈</div>
+          <span class="why-step">04</span>
+          <div class="ic icon-growth" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M6 25V7M6 25h21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M9 20l5-5 4 3 7-8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 10h5v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <h3>Meningkatkan Peluang Karier</h3>
           <p>Persiapkan diri untuk masa depan dengan peluang kerja luas.</p>
         </div>
@@ -96,14 +99,7 @@
         <p>Ikuti tes career path digital dan temukan karier terbaik yang sesuai dengan minat dan potensimu.</p>
         <button class="btn btn-white" onclick="startQuiz()">Tes Sekarang →</button>
       </div>
-      <svg class="cta-figure" viewBox="0 0 200 260" fill="none">
-        <ellipse cx="100" cy="248" rx="70" ry="10" fill="rgba(255,255,255,0.25)"/>
-        <rect x="45" y="95" width="110" height="130" rx="26" fill="#062C63"/>
-        <circle cx="100" cy="60" r="42" fill="#F3C9A3"/>
-        <path d="M60 55C60 30 78 12 100 12C122 12 140 30 140 55V58H60V55Z" fill="#062C63"/>
-        <path d="M148 100 L172 78" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="176" cy="74" r="8" fill="#fff"/>
-      </svg>
+      <img class="cta-figure" src="assets/assets_test1.png" alt="Perempuan belajar karier digital menggunakan laptop">
     </div>
   </div>
 
@@ -112,34 +108,38 @@
     <div class="container">
       <div class="section-head">
         <div>
-          <h2>Program Pembelajaran untuk Masa Depan Digitalmu</h2>
+          <span class="section-kicker">Jalur belajar pilihan</span><h2>Program Pembelajaran untuk Masa Depan Digitalmu</h2>
         </div>
-        <a href="#" class="see-all">Lihat Semua Program →</a>
+        <a href="https://haltev.id/" class="see-all" target="_blank" rel="noopener">Lihat Semua Program →</a>
       </div>
       <div class="program-grid">
         <div class="program-card">
-          <div class="ic" style="background:#E9F0FF;">💻</div>
-          <h3>Web Development</h3>
-          <p>Membangun website dan aplikasi web modern.</p>
-          <a href="#">Mulai Belajar →</a>
+          <span class="card-index">01</span>
+          <div class="ic icon-code"><i data-lucide="code-2" aria-hidden="true"></i></div>
+          <h3>Programming &amp; Coding</h3>
+          <p>Belajar programming dan coding dengan kurikulum berstandar industri.</p>
+          <a href="https://haltev.id/" target="_blank" rel="noopener">Mulai Belajar →</a>
         </div>
         <div class="program-card">
-          <div class="ic" style="background:#E9F7EE;">📊</div>
-          <h3>Data Analytics</h3>
-          <p>Mengolah data menjadi insight yang bermanfaat.</p>
-          <a href="#">Mulai Belajar →</a>
+          <span class="card-index">02</span>
+          <div class="ic icon-data"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i></div>
+          <h3>Data Science</h3>
+          <p>Mengembangkan kemampuan data science untuk kebutuhan karier digital.</p>
+          <a href="https://haltev.id/" target="_blank" rel="noopener">Mulai Belajar →</a>
         </div>
         <div class="program-card">
-          <div class="ic" style="background:#F1ECFE;">🧬</div>
-          <h3>Data Scientist</h3>
-          <p>Merancang pengalaman data yang lebih baik.</p>
-          <a href="#">Mulai Belajar →</a>
-        </div>
-        <div class="program-card">
-          <div class="ic" style="background:#FFF1E4;">📣</div>
+          <span class="card-index">03</span>
+          <div class="ic icon-marketing"><i data-lucide="megaphone" aria-hidden="true"></i></div>
           <h3>Digital Marketing</h3>
-          <p>Mengembangkan strategi pemasaran digital.</p>
-          <a href="#">Mulai Belajar →</a>
+          <p>Menyusun strategi pemasaran digital yang relevan dengan industri.</p>
+          <a href="https://haltev.id/" target="_blank" rel="noopener">Mulai Belajar →</a>
+        </div>
+        <div class="program-card">
+          <span class="card-index">04</span>
+          <div class="ic icon-security"><i data-lucide="shield-check" aria-hidden="true"></i></div>
+          <h3>Cyber Security</h3>
+          <p>Memahami dasar keamanan sistem dan perlindungan data digital.</p>
+          <a href="https://haltev.id/" target="_blank" rel="noopener">Mulai Belajar →</a>
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@
   <div class="section" id="testimonials">
     <div class="container">
       <div class="section-head">
-        <h2>Kata Mereka yang Sudah Merasakan Manfaatnya</h2>
+        <div><span class="section-kicker">Cerita perjalanan</span><h2>Kata Mereka yang Sudah Merasakan Manfaatnya</h2></div>
         <a href="#" class="see-all">Lihat Semua Testimoni →</a>
       </div>
       <div class="testi-grid">
@@ -157,21 +157,21 @@
           <p class="quote">"Materinya lengkap dan mudah dipahami. Mentornya juga sangat membantu."</p>
           <div class="testi-person">
             <div class="avatar" style="background:#0B6FF2;">RA</div>
-            <div><div class="name">Rafi Adrian</div><div class="role">Mahasiswa · UI</div></div>
+            <div><div class="name">Rafi Adrian</div><div class="role">Mahasiswa · UI</div><span class="testi-source">Alumni Haltev</span></div>
           </div>
         </div>
         <div class="testi-card">
           <p class="quote">"Haltev membantu saya mendapatkan pekerjaan pertama di bidang tech."</p>
           <div class="testi-person">
             <div class="avatar" style="background:#E4574A;">SP</div>
-            <div><div class="name">Salsabila Putri</div><div class="role">Front-end Developer</div></div>
+            <div><div class="name">Salsabila Putri</div><div class="role">Front-end Developer</div><span class="testi-source">Alumni Haltev</span></div>
           </div>
         </div>
         <div class="testi-card">
           <p class="quote">"Programnya terstruktur dan relevan dengan kebutuhan industri saat ini."</p>
           <div class="testi-person">
             <div class="avatar" style="background:#17A6E0;">DA</div>
-            <div><div class="name">Dimas Ardi</div><div class="role">Software Developer</div></div>
+            <div><div class="name">Dimas Ardi</div><div class="role">Software Developer</div><span class="testi-source">Alumni Haltev</span></div>
           </div>
         </div>
       </div>
@@ -186,15 +186,9 @@
 <section id="view-quiz" hidden>
   <div class="quiz-wrap">
     <a href="#" onclick="goHome(event)" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px;color:var(--text-muted);margin-bottom:18px;">← Kembali ke Beranda</a>
-    <svg class="quiz-illus" viewBox="0 0 120 120" fill="none">
-      <rect x="30" y="18" width="60" height="80" rx="8" fill="#0B6FF2"/>
-      <rect x="38" y="30" width="44" height="6" rx="3" fill="#fff"/>
-      <rect x="38" y="42" width="44" height="6" rx="3" fill="#BFE0FF"/>
-      <path d="M42 62 L52 72 L78 48" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="95" cy="24" r="6" fill="#17A6E0"/>
-      <circle cx="20" cy="90" r="5" fill="#0B6FF2"/>
-    </svg>
+    <img class="quiz-illus" src="assets/cta-character.png" alt="Perempuan profesional menggunakan laptop untuk belajar karier digital">
     <div class="quiz-head">
+      <span class="assessment-badge">Career Assessment</span>
       <h1>Kenali Dirimu, Temukan Arah Kariermu</h1>
       <p>Jawab setiap pertanyaan dengan jujur untuk mendapatkan rekomendasi bidang digital yang paling sesuai dengan minat dan kecenderunganmu.</p>
     </div>
@@ -306,25 +300,29 @@
       </div>
       <div class="program-grid">
         <div class="program-card">
-          <div class="ic" style="background:#E9F0FF;">💻</div>
+          <span class="card-index">01</span>
+          <div class="ic icon-code"><i data-lucide="code-2" aria-hidden="true"></i></div>
           <h3>Web Development</h3>
           <p>Membangun website dan aplikasi web modern.</p>
           <a href="#">Mulai Belajar →</a>
         </div>
         <div class="program-card">
-          <div class="ic" style="background:#E9F7EE;">📊</div>
+          <span class="card-index">02</span>
+          <div class="ic icon-data"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i></div>
           <h3>Data Analytics</h3>
           <p>Mengolah data menjadi insight yang bermanfaat.</p>
           <a href="#">Mulai Belajar →</a>
         </div>
         <div class="program-card">
-          <div class="ic" style="background:#F1ECFE;">🧬</div>
+          <span class="card-index">03</span>
+          <div class="ic icon-marketing"><i data-lucide="megaphone" aria-hidden="true"></i></div>
           <h3>Data Scientist</h3>
           <p>Merancang pengalaman data yang lebih baik.</p>
           <a href="#">Mulai Belajar →</a>
         </div>
         <div class="program-card">
-          <div class="ic" style="background:#FFF1E4;">📣</div>
+          <span class="card-index">04</span>
+          <div class="ic icon-security"><i data-lucide="shield-check" aria-hidden="true"></i></div>
           <h3>Digital Marketing</h3>
           <p>Mengembangkan strategi pemasaran digital.</p>
           <a href="#">Mulai Belajar →</a>
@@ -387,19 +385,20 @@
 
 </main>
 
+<script>lucide.createIcons({strokeWidth: 2});</script>
+
 <template id="footer-template">
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
         <div>
           <a href="#" class="logo" onclick="goHome(event)">
-            <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
-              <path d="M16 2L28 8V16C28 22.6 22.9 27.7 16 30C9.1 27.7 4 22.6 4 16V8L16 2Z" fill="#17A6E0"/>
-              <path d="M11 16L14.5 19.5L21.5 12.5" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            haltev
+            <img class="footer-logo" src="assets/Logo Haltev Transparan.png" alt="Haltev">
           </a>
-          <p class="tag">Belajar, Berkarya, Bertumbuh.</p>
+          <div class="footer-company">
+            <strong>HALTEV</strong>
+            <span>PT HALTEKOM MEDIA INOVASI</span>
+          </div>
         </div>
         <div>
           <h4>Navigasi</h4>
@@ -413,20 +412,29 @@
         <div>
           <h4>Program</h4>
           <ul>
-            <li><a href="#">Web Development</a></li>
-            <li><a href="#">Data Analytics</a></li>
-            <li><a href="#">UI/UX Designing</a></li>
-            <li><a href="#">Digital Marketing</a></li>
+            <li><a href="https://haltev.id/" target="_blank" rel="noopener">Programming &amp; Coding</a></li>
+            <li><a href="https://haltev.id/" target="_blank" rel="noopener">Data Science</a></li>
+            <li><a href="https://haltev.id/" target="_blank" rel="noopener">Digital Marketing</a></li>
+            <li><a href="https://haltev.id/" target="_blank" rel="noopener">Cyber Security</a></li>
           </ul>
         </div>
         <div>
           <h4>Kontak</h4>
-          <ul>
-            <li><a href="mailto:halo@haltev.id">✉️ halo@haltev.id</a></li>
-            <li><a href="tel:+6281234567890">📞 +62 812 3456 7890</a></li>
-            <li><a href="#">📍 Bekasi, Indonesia</a></li>
+          <ul class="footer-contact">
+            <li><a href="mailto:admin@haltev.id">✉ admin@haltev.id</a></li>
+            <li><a href="tel:+6287800092728">☎ 6287800092728</a></li>
+            <li><span>Jl. Boulevard Raya Blok RGA,<br>Grand Galaxy City, Jaka Setia,<br>Kota Bekasi, Jawa Barat 17147</span></li>
           </ul>
         </div>
+      </div>
+      <div class="footer-socials" aria-label="Media sosial Haltev">
+        <a href="https://www.instagram.com/haltevid/" target="_blank" rel="noopener" aria-label="Instagram Haltev"><img src="https://cdn.simpleicons.org/instagram/FFFFFF" alt="Instagram"></a>
+        <a href="https://www.tiktok.com/@haltevid" target="_blank" rel="noopener" aria-label="TikTok Haltev"><img src="https://cdn.simpleicons.org/tiktok/FFFFFF" alt="TikTok"></a>
+        <a href="https://x.com/haltevid" target="_blank" rel="noopener" aria-label="X Haltev"><img src="https://cdn.simpleicons.org/x/FFFFFF" alt="X"></a>
+        <a href="https://www.linkedin.com/company/haltev-it-learning-center" target="_blank" rel="noopener" aria-label="LinkedIn Haltev"><span class="social-linkedin-mark" aria-hidden="true">in</span></a>
+        <a href="https://www.facebook.com/haltev.id" target="_blank" rel="noopener" aria-label="Facebook Haltev"><img src="https://cdn.simpleicons.org/facebook/FFFFFF" alt="Facebook"></a>
+        <a href="https://www.youtube.com/@haltevprogrammingchannel5087" target="_blank" rel="noopener" aria-label="YouTube Haltev"><img src="https://cdn.simpleicons.org/youtube/FFFFFF" alt="YouTube"></a>
+        <span class="social-handle">@haltevid</span>
       </div>
       <div class="footer-bottom">
         <span>© 2026 Haltev. All rights reserved.</span>
@@ -458,7 +466,6 @@ function goHomeAnchor(e,anchor){
   showView('view-home');
   setTimeout(()=>{ const el=document.getElementById(anchor); if(el) el.scrollIntoView({behavior:'smooth'}); },30);
 }
-
 /* ---------------- Quiz data ---------------- */
 const CATS = {
   web:   {label:'Web Development', emoji:'💻', color:'#0B6FF2', bg:'#E9F0FF',
@@ -616,24 +623,33 @@ function renderQuestion(){
   const data = QUESTIONS[currentQ];
   document.getElementById('q-title').textContent = data.q;
   const total = QUESTIONS.length;
-  document.getElementById('q-counter').textContent = (currentQ+1)+' dari '+total;
+  document.getElementById('q-counter').textContent = 'Pertanyaan '+(currentQ+1)+' dari '+total;
   const pct = Math.round(((currentQ+1)/total)*100);
-  document.getElementById('q-percent').textContent = pct+'%';
+  document.getElementById('q-percent').textContent = pct+'% selesai';
   document.getElementById('progress-fill').style.width = pct+'%';
 
   const wrap = document.getElementById('q-options');
   wrap.innerHTML = '';
   data.opts.forEach((opt,idx)=>{
-    const [text,cat,emoji] = opt;
+    const [text,cat] = opt;
     const selected = answers[currentQ]===idx;
+    const iconMap = {
+      'Membuat website atau aplikasi':'code-2',
+      'Mengolah angka dan data':'chart-column',
+      'Membuat desain visual':'palette',
+      'Membuat strategi pemasaran':'megaphone',
+      'Mencari dan memecahkan masalah keamanan':'shield-check',
+      'Bereksperimen dengan teknologi AI':'sparkles'
+    };
     const label = document.createElement('label');
     label.className = 'option'+(selected?' selected':'');
     label.innerHTML = '<input type="radio" name="opt" '+(selected?'checked':'')+'>'+
-      '<span class="opt-ic" style="background:'+CATS[cat].bg+';">'+emoji+'</span>'+
+      '<span class="opt-ic" style="background:'+CATS[cat].bg+';"><i data-lucide="'+iconMap[text]+'" aria-hidden="true"></i></span>'+ 
       '<span>'+text+'</span><span class="radio-dot" style="margin-left:auto;"></span>';
     label.onclick = ()=>{ answers[currentQ]=idx; renderQuestion(); };
     wrap.appendChild(label);
   });
+  lucide.createIcons({strokeWidth: 2});
 
   document.getElementById('btn-back').style.visibility = currentQ===0 ? 'hidden':'visible';
   const nextBtn = document.getElementById('btn-next');
