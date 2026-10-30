@@ -101,8 +101,8 @@ let userName = '';
 let userPhone = '';
 
 let currentUserId = null;
-
 let currentAttemptId = null;
+let currentSubmissionToken = null;
 
 try { localStorage.removeItem('nama'); } catch(err) {}
 
@@ -114,9 +114,9 @@ function showBioForm(){
 
   userPhone = '';
 
-  currentUserId = null;
-
-  currentAttemptId = null;
+currentUserId = null;
+currentAttemptId = null;
+currentSubmissionToken = null;
 
   document.getElementById('bio-name').value = '';
 
@@ -127,50 +127,52 @@ function showBioForm(){
 }
 window.showBioForm = showBioForm;
 
-async function submitBioForm(e){
-
+async function submitBioForm(e) {
   e.preventDefault();
 
   userName = document.getElementById('bio-name').value.trim();
-
   userPhone = document.getElementById('bio-phone').value.trim();
 
-  if(!userName || !userPhone) return;
+  if (!userName || !userPhone) {
+    alert('Nama dan nomor HP wajib diisi.');
+    return;
+  }
 
+  const btn = e.submitter ||
+    e.target.querySelector('button[type="submit"]');
 
-
-  const btn = e.target.querySelector('button[type="submit"]');
+  if (!btn) {
+    console.error('Tombol submit tidak ditemukan.');
+    return;
+  }
 
   const btnText = btn.innerHTML;
-
   btn.disabled = true;
-
   btn.classList.add('is-loading');
+  btn.textContent = 'Menyiapkan tes...';
 
-  btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Menyiapkan tes...';
+  const slowTimer = setTimeout(() => {
+    btn.textContent = 'Koneksi lambat, mohon tunggu...';
+  }, 6000);
 
-  const slowTimer = setTimeout(()=>{ btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Koneksi lambat, mohon tunggu...'; }, 6000);
+  try {
+    // Simpan peserta dan buat percobaan kuis.
+    const ok = await createUserAndAttempt();
 
+    if (!ok) return;
 
+    // Mulai tes setelah penyimpanan berhasil.
+    await startQuiz();
 
-  const ok = await createUserAndAttempt();
-
-
-
-  clearTimeout(slowTimer);
-
-  btn.disabled = false;
-
-  btn.classList.remove('is-loading');
-
-  btn.innerHTML = btnText;
-
-  if(!ok) return;
-
-
-
-  startQuiz();
-
+  } catch (error) {
+    console.error('Gagal memulai tes:', error);
+    alert('Tes gagal dimulai. Periksa Console (F12).');
+  } finally {
+    clearTimeout(slowTimer);
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.innerHTML = btnText;
+  }
 }
 
 
@@ -209,431 +211,533 @@ function withTimeout(promise, ms){
 
 
 
+
+
+
 async function saveUserAndAttempt() {
-  // 1. Validasi data peserta
-  if (!userName || !userPhone) {
+  if (!userName?.trim() || !userPhone?.trim()) {
     throw new Error('Nama dan nomor HP wajib diisi.');
   }
 
-  // 2. Cari peserta berdasarkan nomor HP
-  const { data: existingUser, error: findUserError } = await supabaseClient
-    .from('users')
-    .select('id')
-    .eq('phone', userPhone)
-    .maybeSingle();
-
-  if (findUserError) {
-    throw new Error(`Gagal mencari peserta: ${findUserError.message}`);
-  }
-
-  // 3. Gunakan peserta lama atau buat peserta baru
-  if (existingUser) {
-    currentUserId = existingUser.id;
-  } else {
-    const { data: newUser, error: userError } = await supabaseClient
-      .from('users')
-      .insert({ name: userName, phone: userPhone })
-      .select('id')
-      .single();
-
-    if (userError) {
-      throw new Error(`Gagal menyimpan peserta: ${userError.message}`);
+  const { data, error } = await supabaseClient.functions.invoke(
+    'register-career-participant',
+    {
+      body: {
+        name: userName.trim(),
+        phone: userPhone.trim()
+      }
     }
-
-    if (!newUser || newUser.id == null) {
-      throw new Error('ID peserta tidak berhasil diperoleh.');
-    }
-
-    currentUserId = newUser.id;
-  }
-
-  // 4. Buat percobaan kuis melalui RPC Supabase.
-  // Pastikan fungsi create_quiz_attempt sudah dibuat di database.
-  const { data: attemptId, error: attemptError } = await supabaseClient.rpc(
-    'create_quiz_attempt',
-    { p_user_id: currentUserId }
   );
 
-  if (attemptError) {
-    throw new Error(`Gagal membuat percobaan kuis: ${attemptError.message}`);
+  if (error) {
+    console.error('Edge Function pendaftaran gagal:', error);
+    throw new Error(
+      'Pendaftaran gagal. Periksa Logs pada register-career-participant.'
+    );
   }
 
-  if (attemptId == null || attemptId === '') {
-    throw new Error('Supabase tidak mengembalikan ID percobaan kuis.');
+  if (
+    !data ||
+    data.userId == null ||
+    data.attemptId == null ||
+    !data.submissionToken
+  ) {
+    console.error('Respons pendaftaran tidak lengkap:', data);
+    throw new Error(
+      data?.error || 'ID peserta, ID percobaan, atau token tidak ditemukan.'
+    );
   }
 
-  currentAttemptId = attemptId;
-  console.log('Peserta tersimpan:', currentUserId);
-  console.log('Percobaan kuis tersimpan:', currentAttemptId);
+  currentUserId = data.userId;
+  currentAttemptId = data.attemptId;
+  currentSubmissionToken = data.submissionToken;
+
+  console.log('Pendaftaran berhasil melalui Edge Function.');
+  console.log('Attempt ID:', currentAttemptId);
+  console.log('Submission token diterima.');
+
   return true;
 }
 
-async function saveQuizResultToSupabase(topKey, rawScores){
 
-  if(!currentAttemptId){
-
-    throw new Error('currentAttemptId kosong. Quiz attempt belum dibuat.');
-
+async function saveQuizResultToSupabase(topKey, rawScores) {
+  if (!currentAttemptId) {
+    throw new Error(
+      'ID percobaan tidak tersedia. Silakan mulai kuis kembali.'
+    );
   }
-
-
 
   const answerRows = answers
-
     .map((selectedIndex, questionIndex) => {
-
-      if(selectedIndex === null) return null;
-
-
+      if (selectedIndex === null) return null;
 
       const question = QUESTIONS[questionIndex];
-
       const option = question?.opts?.[selectedIndex];
 
-      if(!option) return null;
-
-
+      if (!option) return null;
 
       return {
-
         attempt_id: currentAttemptId,
-
-        question_number: Number(question.question_number ?? questionIndex + 1),
-
+        question_number: Number(
+          question.question_number ?? questionIndex + 1
+        ),
         answer_text: String(option[0]),
-
         category: String(option[1])
-
       };
-
     })
-
     .filter(Boolean);
 
-
-
-  if(answerRows.length){
-
-    const { error: answerError } = await supabaseClient
-
-      .from('quiz_answers')
-
-      .insert(answerRows);
-
-
-
-    if(answerError) throw answerError;
-
+  if (answerRows.length === 0) {
+    throw new Error('Tidak ada jawaban yang dapat disimpan.');
   }
 
+  try {
+    const { error: answerError } = await supabaseClient
+      .from('quiz_answers')
+      .insert(answerRows);
 
+    if (answerError) {
+      throw answerError;
+    }
 
-  const { error: attemptError } = await supabaseClient
+    const { error: updateError } = await supabaseClient
+      .from('quiz_attempts')
+      .update({
+        completed_at: new Date().toISOString(),
+        status: 'completed',
+        top_category: topKey,
+        scores: rawScores
+      })
+      .eq('id', currentAttemptId);
 
-    .from('quiz_attempts')
+    if (updateError) {
+      throw updateError;
+    }
 
-    .update({
+    console.log('Jawaban kuis berhasil disimpan ke database local.');
+    return;
+  } catch (dbError) {
+    console.warn(
+      'Insert langsung ke tabel gagal, mencoba Edge Function fallback:',
+      dbError
+    );
+  }
 
-      completed_at: new Date().toISOString(),
+  if (!currentSubmissionToken) {
+    throw new Error(
+      'Token pengiriman tidak tersedia. Silakan mulai kuis kembali.'
+    );
+  }
 
-      status: 'completed'
+  const { data, error } = await supabaseClient.functions.invoke(
+    'submit-career-quiz',
+    {
+      body: {
+        attemptId: currentAttemptId,
+        submissionToken: currentSubmissionToken,
+        answers: answerRows,
+        topKey,
+        scores: rawScores
+      }
+    }
+  );
 
-    })
+  if (error) {
+    console.error('Gagal mengirim hasil kuis:', error);
+    throw new Error(
+      'Hasil kuis gagal disimpan. Periksa log Edge Function.'
+    );
+  }
 
-    .eq('id', currentAttemptId);
+  if (!data?.success) {
+    console.error('Respons penyimpanan tidak sesuai:', data);
+    throw new Error(
+      data?.error || 'Server belum mengonfirmasi penyimpanan hasil.'
+    );
+  }
 
-
-
-  if(attemptError) throw attemptError;
-
+  console.log('Jawaban kuis berhasil disimpan melalui server.');
 }
+
+
 
 
 
 /* ---------------- Quiz data ---------------- */
 
 const CATS = {
+  web: {
+    label: 'Programming & Coding',
+    emoji: '💻',
+    color: '#0B6FF2',
+    bg: '#E9F0FF',
+    about: 'Programming & Coding berfokus pada pembuatan aplikasi, website, dan sistem digital melalui kode serta logika pemrograman.',
+    roadmap: [
+      ['Dasar Pemrograman', 'Memahami variabel, logika, kondisi, dan perulangan.'],
+      ['HTML & CSS', 'Membangun struktur dan tampilan website.'],
+      ['JavaScript', 'Membuat website interaktif.'],
+      ['Database & Backend', 'Mengelola data dan logika aplikasi.'],
+      ['Proyek Portofolio', 'Membuat aplikasi atau website sendiri.']
+    ],
+    curriculum: [
+      ['Fundamental Coding', '💻'],
+      ['HTML & CSS', '🎨'],
+      ['JavaScript', '🟨'],
+      ['Database', '🗄️'],
+      ['Project', '🚀']
+    ],
+    fits: [
+      ['Kamu Suka Memecahkan Masalah', 'Kamu menikmati tantangan logika dan mencari solusi.','🧩'],
+      ['Kamu Tekun dan Sistematis', 'Kamu suka mengerjakan sesuatu secara terstruktur.','🎯'],
+      ['Kamu Tertarik dengan Teknologi', 'Kamu ingin memahami cara kerja sistem digital.','💻'],
+      ['Kamu Suka Membangun Sesuatu', 'Kamu senang mengubah ide menjadi produk nyata.','🚀']
+    ],
+    scores: [
+      ['Logical Thinking', 90, '💡'],
+      ['Problem Solving', 92, '🧩'],
+      ['Technology Interest', 88, '💻'],
+      ['Persistence', 85, '🎯']
+    ]
+  },
 
-  web:   {label:'Web Development', emoji:'💻', color:'#0B6FF2', bg:'#E9F0FF',
+  data: {
+    label: 'Data Science',
+    emoji: '📊',
+    color: '#1E9E5A',
+    bg: '#E9F7EE',
+    about: 'Data Science berfokus pada pengolahan dan analisis data untuk menemukan pola, menghasilkan insight, serta mendukung pengambilan keputusan.',
+    roadmap: [
+      ['Excel & SQL', 'Mengolah dan mengambil data.'],
+      ['Statistik', 'Memahami pola dan hubungan dalam data.'],
+      ['Python', 'Mengolah data dengan pemrograman.'],
+      ['Visualisasi Data', 'Menyajikan temuan secara jelas.'],
+      ['Proyek Data', 'Membuat analisis dari data nyata.']
+    ],
+    curriculum: [
+      ['Fundamental Data', '📂'],
+      ['SQL & Excel', '🧮'],
+      ['Statistika', '📊'],
+      ['Visualisasi Data', '📈'],
+      ['Project', '🚀']
+    ],
+    fits: [
+      ['Kamu Suka Angka dan Pola', 'Kamu senang menemukan pola tersembunyi dalam data.','🔢'],
+      ['Kamu Teliti', 'Kamu memperhatikan detail dan ketepatan informasi.','🔍'],
+      ['Kamu Berpikir Analitis', 'Kamu mempertimbangkan bukti sebelum menyimpulkan.','💡'],
+      ['Kamu Suka Menemukan Insight', 'Kamu ingin mengubah data menjadi informasi berguna.','📊']
+    ],
+    scores: [
+      ['Analytical Thinking', 92, '🔢'],
+      ['Attention to Detail', 90, '🔍'],
+      ['Logical Thinking', 86, '💡'],
+      ['Data Interpretation', 89, '📊']
+    ]
+  },
 
-          about:'Web Development adalah proses membangun dan mengembangkan website atau aplikasi berbasis web, mulai dari tampilan, interaksi, hingga fungsi yang berjalan di dalamnya.',
+  design: {
+    label: 'Desain Visual',
+    emoji: '🎨',
+    color: '#D9468F',
+    bg: '#FCEAF3',
+    about: 'Desain Visual mengubah ide menjadi komunikasi visual melalui komposisi, warna, tipografi, ilustrasi, dan tata letak.',
+    roadmap: [
+      ['Dasar Desain', 'Memahami warna, bentuk, komposisi, dan hierarki visual.'],
+      ['Tipografi & Layout', 'Menyusun teks dan elemen agar mudah dibaca.'],
+      ['Tools Desain', 'Berlatih menggunakan aplikasi desain.'],
+      ['Branding & UI', 'Membuat identitas visual dan antarmuka.'],
+      ['Portofolio', 'Mengumpulkan karya terbaik.']
+    ],
+    curriculum: [
+      ['Prinsip Desain', '🎨'],
+      ['Warna & Tipografi', '🖌️'],
+      ['Tools Desain', '🧰'],
+      ['Branding & UI', '🖼️'],
+      ['Portofolio', '🚀']
+    ],
+    fits: [
+      ['Kamu Kreatif', 'Kamu senang menghasilkan ide visual yang menarik.','🎨'],
+      ['Kamu Peka terhadap Detail', 'Kamu memperhatikan warna, bentuk, dan kerapian.','🔍'],
+      ['Kamu Suka Berkarya', 'Kamu menikmati mengubah ide menjadi karya visual.','🖼️'],
+      ['Kamu Suka Bereksperimen', 'Kamu senang mencoba gaya dan pendekatan baru.','✨']
+    ],
+    scores: [
+      ['Creativity', 93, '🎨'],
+      ['Visual Sense', 92, '🖼️'],
+      ['Attention to Detail', 88, '🔍'],
+      ['Communication', 80, '💬']
+    ]
+  },
 
-          roadmap:[['HTML & CSS','Membuat struktur dan tampilan website.'],['JavaScript','Membuat website lebih interaktif.'],['Database','Menyimpan dan mengelola data.'],['Backend Development','Membangun sistem & logic.'],['Deployment','Membuat website dapat diakses.']],
+  marketing: {
+    label: 'Digital Marketing',
+    emoji: '📣',
+    color: '#E07A1E',
+    bg: '#FFF1E4',
+    about: 'Digital Marketing adalah strategi pemasaran melalui kanal digital, termasuk media sosial, SEO, konten, dan iklan online.',
+    roadmap: [
+      ['Dasar Pemasaran', 'Memahami target pasar dan brand.'],
+      ['SEO & Content', 'Meningkatkan visibilitas online.'],
+      ['Social Media', 'Mengelola konten dan komunitas.'],
+      ['Digital Ads', 'Mempelajari kampanye iklan digital.'],
+      ['Analytics & Strategy', 'Mengukur performa dan menyusun strategi.']
+    ],
+    curriculum: [
+      ['Fundamental Marketing', '📣'],
+      ['SEO & SEM', '🔍'],
+      ['Social Media', '📱'],
+      ['Content Strategy', '✍️'],
+      ['Project', '🚀']
+    ],
+    fits: [
+      ['Kamu Suka Berkomunikasi', 'Kamu senang menyampaikan pesan kepada orang lain.','💬'],
+      ['Kamu Kreatif', 'Kamu suka membuat ide dan konten menarik.','🎨'],
+      ['Kamu Peka terhadap Tren', 'Kamu cepat menangkap perubahan tren.','📈'],
+      ['Kamu Suka Membangun Brand', 'Kamu tertarik membantu brand tumbuh dan dikenal.','🚀']
+    ],
+    scores: [
+      ['Communication', 92, '💬'],
+      ['Creativity', 88, '🎨'],
+      ['Trend Awareness', 89, '📈'],
+      ['Strategic Thinking', 86, '♟️']
+    ]
+  },
 
-          curriculum:[['Fundamental Web','🌐'],['JavaScript','🟨'],['Front-End Development','🎨'],['Back-End Development','🗄️'],['Project','🚀']],
+  security: {
+    label: 'Cyber Security',
+    emoji: '🛡️',
+    color: '#2B6FE0',
+    bg: '#E8F1FF',
+    about: 'Cyber Security berfokus pada perlindungan sistem, jaringan, aplikasi, dan data dari ancaman serta serangan digital.',
+    roadmap: [
+      ['Dasar Jaringan', 'Memahami cara kerja jaringan komputer.'],
+      ['Sistem Operasi & Linux', 'Mempelajari sistem dan administrasi.'],
+      ['Keamanan Aplikasi', 'Mengenali celah keamanan.'],
+      ['Ethical Hacking', 'Menguji keamanan secara legal dan terkontrol.'],
+      ['Incident Response', 'Memahami penanganan insiden keamanan.']
+    ],
+    curriculum: [
+      ['Fundamental Security', '🛡️'],
+      ['Jaringan Komputer', '🌐'],
+      ['Linux', '💻'],
+      ['Keamanan Aplikasi', '🔐'],
+      ['Project', '🚀']
+    ],
+    fits: [
+      ['Kamu Teliti dan Waspada', 'Kamu memperhatikan detail dan risiko.','🔍'],
+      ['Kamu Suka Memecahkan Masalah', 'Kamu tertarik menemukan dan memperbaiki celah.','🧩'],
+      ['Kamu Berpikir Sistematis', 'Kamu mempertimbangkan langkah dengan hati-hati.','♟️'],
+      ['Kamu Suka Menjaga Keamanan', 'Kamu peduli terhadap perlindungan data dan pengguna.','🛡️']
+    ],
+    scores: [
+      ['Attention to Detail', 93, '🔍'],
+      ['Problem Solving', 90, '🧩'],
+      ['Logical Thinking', 88, '💡'],
+      ['Risk Awareness', 92, '🛡️']
+    ]
+  },
 
-          fits:[['Kamu Suka Memecahkan Masalah','Kamu menyukai tantangan analitis dan logika yang kuat.','🧩'],['Kamu Tertarik dengan Teknologi','Kamu memiliki ketertarikan tinggi terhadap teknologi baru.','🎓'],['Kamu Kreatif dan Inovatif','Kamu punya imajinasi dan merancang tampilan menarik.','🎨'],['Kamu Suka Membangun Sesuatu','Kamu senang melihat ide berubah jadi produk yang nyata.','🚀']],
-
-          scores:[['Problem Solving',90,'🧩'],['Logical Thinking',85,'💡'],['Technology Interest',88,'🖥️'],['Creativity',70,'🎨']]},
-
-  data:  {label:'Data Analyst', emoji:'📊', color:'#1E9E5A', bg:'#E9F7EE',
-
-          about:'Data Analytics adalah proses mengumpulkan, membersihkan, dan mengolah data mentah menjadi insight yang membantu pengambilan keputusan bisnis.',
-
-          roadmap:[['Excel & SQL','Mengolah dan menganalisis data dasar.'],['Statistik','Memahami pola dan tren data.'],['Visualisasi Data','Menyajikan data secara visual.'],['Python/R','Automasi analisis data.'],['Business Insight','Menerjemahkan data jadi keputusan.']],
-
-          curriculum:[['Fundamental Data','📂'],['SQL & Excel','🧮'],['Statistika','📊'],['Visualisasi','📈'],['Project','🚀']],
-
-          fits:[['Kamu Suka Angka dan Pola','Kamu senang menemukan pola tersembunyi di balik data.','🔢'],['Kamu Teliti dan Sistematis','Kamu memperhatikan detail kecil dengan cermat.','🔍'],['Kamu Suka Mengambil Keputusan','Kamu senang membantu tim mengambil keputusan tepat.','📌'],['Kamu Suka Bercerita Lewat Data','Kamu senang menyajikan angka jadi insight yang mudah dipahami.','📊']],
-
-          scores:[['Analytical Thinking',92,'🔢'],['Attention to Detail',88,'🔍'],['Logical Thinking',84,'💡'],['Communication',68,'💬']]},
-
-  scientist: {label:'Data Scientist', emoji:'🧬', color:'#7C5CE0', bg:'#F1ECFE',
-
-          about:'Data Scientist merancang model dan algoritma untuk mengekstrak insight mendalam dari data, termasuk penerapan machine learning dan AI.',
-
-          roadmap:[['Matematika & Statistik','Fondasi analisis data tingkat lanjut.'],['Python','Bahasa utama data science.'],['Machine Learning','Membangun model prediktif.'],['Data Engineering','Mengelola pipeline data besar.'],['Model Deployment','Menerapkan model ke produksi.']],
-
-          curriculum:[['Statistika Lanjut','📐'],['Python for DS','🐍'],['Machine Learning','🤖'],['Deep Learning','🧠'],['Capstone Project','🚀']],
-
-          fits:[['Kamu Suka Eksperimen','Kamu senang menguji berbagai pendekatan untuk hasil terbaik.','🧪'],['Kamu Berpikir Analitis Mendalam','Kamu menikmati masalah kompleks dan abstrak.','🧠'],['Kamu Tertarik pada AI','Kamu penasaran dengan teknologi kecerdasan buatan.','🤖'],['Kamu Suka Riset Mendalam','Kamu senang menggali data untuk menemukan jawaban baru.','🔬']],
-
-          scores:[['Analytical Thinking',94,'🧠'],['Math & Statistics',89,'📐'],['Programming',82,'💻'],['Curiosity',91,'🔭']]},
-
-  marketing: {label:'Digital Marketing', emoji:'📣', color:'#E07A1E', bg:'#FFF1E4',
-
-          about:'Digital Marketing adalah strategi memasarkan produk atau jasa melalui platform digital seperti media sosial, SEO, dan iklan online.',
-
-          roadmap:[['Dasar Pemasaran','Memahami target pasar dan brand.'],['SEO & Content','Meningkatkan visibilitas online.'],['Social Media Ads','Menjalankan kampanye berbayar.'],['Analytics','Mengukur performa kampanye.'],['Strategy & Growth','Merancang strategi pertumbuhan.']],
-
-          curriculum:[['Fundamental Marketing','📣'],['SEO & SEM','🔍'],['Social Media Ads','📱'],['Content Strategy','✍️'],['Project','🚀']],
-
-          fits:[['Kamu Suka Bercerita','Kamu pandai menyampaikan pesan yang menarik.','📝'],['Kamu Kreatif dalam Berkomunikasi','Kamu suka membuat konten yang engaging.','🎨'],['Kamu Peka Terhadap Tren','Kamu cepat menangkap tren yang sedang berkembang.','📈'],['Kamu Suka Membangun Brand','Kamu senang melihat sebuah brand tumbuh dan dikenal.','🚀']],
-
-          scores:[['Communication',90,'💬'],['Creativity',86,'🎨'],['Trend Awareness',88,'📈'],['Strategic Thinking',72,'♟️']]},
-
-  security: {label:'Cyber Security', emoji:'🛡️', color:'#2B6FE0', bg:'#E8F1FF',
-
-          about:'Cyber Security adalah bidang yang berfokus pada melindungi sistem, jaringan, dan data dari ancaman dan serangan digital.',
-
-          roadmap:[['Dasar Jaringan','Memahami cara kerja jaringan komputer.'],['Sistem Operasi & Linux','Mengelola sistem secara aman.'],['Keamanan Aplikasi','Mengidentifikasi celah keamanan.'],['Ethical Hacking','Menguji ketahanan sistem.'],['Incident Response','Menangani insiden keamanan.']],
-
-          curriculum:[['Fundamental Security','🛡️'],['Jaringan Komputer','🌐'],['Ethical Hacking','🕵️'],['Keamanan Aplikasi','🔐'],['Project','🚀']],
-
-          fits:[['Kamu Suka Memecahkan Masalah','Kamu menyukai tantangan menemukan celah sistem.','🧩'],['Kamu Teliti dan Waspada','Kamu memperhatikan detail dan potensi risiko.','🔍'],['Kamu Suka Tantangan Logika','Kamu senang berpikir seperti penyerang maupun pertahanan.','♟️'],['Kamu Suka Menjaga Sistem Tetap Aman','Kamu peduli melindungi data dan pengguna dari ancaman.','🛡️']],
-
-          scores:[['Problem Solving',89,'🧩'],['Attention to Detail',91,'🔍'],['Logical Thinking',87,'💡'],['Persistence',80,'⛰️']]}
-
+  scientist: {
+    label: 'Teknologi AI',
+    emoji: '🤖',
+    color: '#7C5CE0',
+    bg: '#F1ECFE',
+    about: 'Teknologi AI berfokus pada pemanfaatan kecerdasan buatan untuk membantu manusia memahami informasi, membuat prediksi, dan mengotomatisasi pekerjaan.',
+    roadmap: [
+      ['Dasar AI', 'Memahami konsep dan penerapan kecerdasan buatan.'],
+      ['Python', 'Mengenal bahasa pemrograman untuk AI.'],
+      ['Machine Learning', 'Memahami model yang belajar dari data.'],
+      ['Generative AI', 'Mengeksplorasi AI untuk teks, gambar, dan produktivitas.'],
+      ['Proyek AI', 'Membuat prototipe sederhana berbasis AI.']
+    ],
+    curriculum: [
+      ['Fundamental AI', '🤖'],
+      ['Python Dasar', '🐍'],
+      ['Machine Learning', '🧪'],
+      ['Generative AI', '✨'],
+      ['Proyek AI', '🚀']
+    ],
+    fits: [
+      ['Kamu Penasaran dengan Teknologi Baru', 'Kamu senang mengeksplorasi teknologi baru.','🔭'],
+      ['Kamu Suka Bereksperimen', 'Kamu tertarik menguji kemampuan teknologi.','🧪'],
+      ['Kamu Berpikir Kreatif', 'Kamu mencari cara baru memanfaatkan teknologi.','💡'],
+      ['Kamu Suka Belajar Mandiri', 'Kamu mau terus mengikuti perkembangan AI.','📚']
+    ],
+    scores: [
+      ['Curiosity', 92, '🔭'],
+      ['Experimentation', 90, '🧪'],
+      ['Creative Thinking', 88, '💡'],
+      ['Technology Interest', 93, '🤖']
+    ]
+  }
 };
 
-
-
 const QUESTIONS = [
-
-  {q:'Apa yang paling menarik perhatian kamu?', opts:[
-
-    ['Membuat website atau aplikasi','web','💻'],
-
-    ['Mengolah angka dan data','data','📊'],
-
-    ['Membuat desain visual','marketing','🎨'],
-
-    ['Membuat strategi pemasaran','marketing','📣'],
-
-    ['Mencari dan memecahkan masalah keamanan','security','🛡️'],
-
-    ['Bereksperimen dengan teknologi AI','scientist','🧬']
-
-  ]},
-
-  {q:'Saat menghadapi masalah, kamu cenderung...', opts:[
-
-    ['Mencari solusi logis langkah demi langkah','web','🧩'],
-
-    ['Menganalisis data untuk menemukan pola','data','🔢'],
-
-    ['Mencari sudut pandang kreatif','marketing','💡'],
-
-    ['Menguji berbagai kemungkinan secara sistematis','security','🔍'],
-
-    ['Membuat model atau eksperimen','scientist','🧪']
-
-  ]},
-
-  {q:'Aktivitas mana yang paling kamu nikmati di waktu luang?', opts:[
-
-    ['Membuat sesuatu dari kode/coding kecil-kecilan','web','💻'],
-
-    ['Membaca laporan atau statistik menarik','data','📈'],
-
-    ['Membuat konten untuk media sosial','marketing','📱'],
-
-    ['Menonton video tentang hacking/keamanan siber','security','🛡️'],
-
-    ['Membaca riset tentang AI & teknologi baru','scientist','🧬']
-
-  ]},
-
-  {q:'Kekuatan utama kamu menurut orang lain adalah...', opts:[
-
-    ['Logika dan pemecahan masalah','web','🧩'],
-
-    ['Ketelitian dan kesabaran menganalisis','data','🔍'],
-
-    ['Komunikasi dan kreativitas','marketing','🎨'],
-
-    ['Kewaspadaan dan kehati-hatian','security','🕵️'],
-
-    ['Rasa ingin tahu yang tinggi','scientist','🔭']
-
-  ]},
-
-  {q:'Jenis proyek seperti apa yang paling ingin kamu kerjakan?', opts:[
-
-    ['Membangun aplikasi atau website dari nol','web','🖥️'],
-
-    ['Menyusun dashboard analisis bisnis','data','📊'],
-
-    ['Merancang kampanye iklan digital','marketing','📣'],
-
-    ['Menguji celah keamanan sebuah sistem','security','🛡️'],
-
-    ['Melatih model prediksi berbasis data','scientist','🧬']
-
-  ]},
-
-  {q:'Bagaimana kamu lebih suka bekerja?', opts:[
-
-    ['Fokus mendalam menyusun sistem/kode','web','💻'],
-
-    ['Mengeksplorasi data secara detail','data','🔎'],
-
-    ['Kolaboratif dan penuh ide baru','marketing','🤝'],
-
-    ['Waspada memantau potensi risiko','security','🚨'],
-
-    ['Bereksperimen dan menguji hipotesis','scientist','🧪']
-
-  ]},
-
-  {q:'Topik apa yang paling ingin kamu pelajari lebih dalam?', opts:[
-
-    ['Bahasa pemrograman & framework web','web','🧑‍💻'],
-
-    ['Statistik dan visualisasi data','data','📐'],
-
-    ['SEO, iklan, dan branding','marketing','🚀'],
-
-    ['Jaringan dan sistem keamanan','security','🔐'],
-
-    ['Machine learning dan kecerdasan buatan','scientist','🤖']
-
-  ]},
-
-  {q:'Kesuksesan karier bagi kamu artinya...', opts:[
-
-    ['Bisa membangun produk digital yang dipakai banyak orang','web','🌐'],
-
-    ['Bisa membantu bisnis mengambil keputusan lebih baik','data','📊'],
-
-    ['Bisa membuat brand dikenal luas','marketing','📣'],
-
-    ['Bisa menjaga sistem tetap aman dari ancaman','security','🛡️'],
-
-    ['Bisa menciptakan teknologi yang inovatif','scientist','🧬']
-
-  ]},
-
-  {q:'Mata pelajaran atau bidang apa yang paling kamu sukai saat sekolah/kuliah?', opts:[
-
-    ['Matematika & logika','web','🧮'],
-
-    ['Statistik & ekonomi','data','📊'],
-
-    ['Seni & bahasa','marketing','🎨'],
-
-    ['Komputer & jaringan','security','🛡️'],
-
-    ['Sains & riset','scientist','🧬']
-
-  ]},
-
-  {q:'Ketika belajar hal baru, kamu lebih suka...', opts:[
-
-    ['Langsung praktik membuat sesuatu','web','🛠️'],
-
-    ['Mempelajari data dan studi kasus nyata','data','📈'],
-
-    ['Melihat contoh kreatif dari orang lain','marketing','🖼️'],
-
-    ['Memahami sistem secara mendalam sebelum bertindak','security','🔐'],
-
-    ['Bereksperimen sendiri sampai menemukan pola','scientist','🧪']
-
-  ]},
-
-  {q:'Dalam sebuah tim, peran apa yang biasa kamu ambil?', opts:[
-
-    ['Yang membangun/menyusun solusi teknis','web','💻'],
-
-    ['Yang menganalisis data untuk tim','data','🔢'],
-
-    ['Yang menyampaikan ide ke audiens','marketing','📣'],
-
-    ['Yang menjaga keamanan dan mengecek risiko','security','🕵️'],
-
-    ['Yang mengusulkan pendekatan baru','scientist','🧬']
-
-  ]},
-
-  {q:'Hal apa yang membuatmu paling puas setelah menyelesaikan sesuatu?', opts:[
-
-    ['Melihat aplikasi/website berjalan dengan baik','web','🖥️'],
-
-    ['Menemukan insight penting dari data','data','📊'],
-
-    ['Kampanye yang berhasil menjangkau banyak orang','marketing','📣'],
-
-    ['Sistem yang berhasil diamankan dari ancaman','security','🛡️'],
-
-    ['Model atau teknologi baru yang berhasil dibuat','scientist','🧬']
-
-  ]},
-
-  {q:'Media atau konten seperti apa yang paling sering kamu konsumsi?', opts:[
-
-    ['Tutorial coding & tech review','web','💻'],
-
-    ['Laporan riset & infografik data','data','📈'],
-
-    ['Konten kreatif & tren media sosial','marketing','📱'],
-
-    ['Berita seputar peretasan & keamanan siber','security','🛡️'],
-
-    ['Artikel tentang AI & inovasi teknologi','scientist','🧬']
-
-  ]},
-
-  {q:'Jika diberi waktu luang 1 minggu, kamu ingin belajar tentang...', opts:[
-
-    ['Membuat aplikasi sederhana','web','📱'],
-
-    ['Mengolah data dengan spreadsheet/SQL','data','📊'],
-
-    ['Membuat konten & strategi promosi','marketing','📣'],
-
-    ['Dasar-dasar keamanan siber','security','🔐'],
-
-    ['Dasar-dasar machine learning','scientist','🧬']
-
-  ]},
-
-  {q:'Kalimat mana yang paling menggambarkan dirimu?', opts:[
-
-    ['"Aku suka membangun sesuatu dari nol."','web','🧩'],
-
-    ['"Aku suka menemukan makna di balik angka."','data','🔢'],
-
-    ['"Aku suka menyampaikan ide dengan menarik."','marketing','🎨'],
-
-    ['"Aku suka menjaga sesuatu tetap aman."','security','🛡️'],
-
-    ['"Aku suka mencoba hal baru yang belum banyak orang tahu."','scientist','🧬']
-
-  ]}
-
+  {
+    q: 'Baru banget dapet HP atau gadget baru. Apa yang langsung kamu lakuin?',
+    opts: [
+      ['Nyobain semua fitur barunya, apalagi yang katanya pakai AI', 'scientist', '🤖'],
+      ['Pasang kunci layar dan atur privasi dulu, biar tenang', 'security', '🛡️'],
+      ['Langsung ngoprek pengaturannya sampai ngerti semua cara kerjanya', 'web', '💻'],
+      ['Ganti wallpaper dan tema, terus ngatur ikon satu-satu biar enak dilihat', 'design', '🎨'],
+      ['Cek spesifikasinya dulu, terus bandingin sama yang lain: worth it nggak ya?', 'data', '📊'],
+      ['Foto terus pamerin ke temen-temen, sekalian rekomendasiin', 'marketing', '📣']
+    ]
+  },
+  {
+    q: 'Kamu lagi pakai aplikasi atau website yang bikin pusing banget. Yang kamu rasain...',
+    opts: [
+      ['Gemes banget sama tampilannya, rasanya pengin kamu desain ulang', 'design', '🎨'],
+      ['Penasaran ini sebenernya dibikin kayak gimana, dan kepikiran cara benerinnya', 'web', '💻'],
+      ['Mulai ragu: aman nggak ya naruh data pribadi di sini?', 'security', '🛡️'],
+      ['Mikir, "harusnya bisa lebih pintar dan otomatis dong"', 'scientist', '🤖'],
+      ['Mikirin gimana caranya biar makin banyak orang mau pakai', 'marketing', '📣'],
+      ['Kepo, di bagian mana sih kebanyakan orang akhirnya nyerah?', 'data', '📊']
+    ]
+  },
+  {
+    q: 'Lagi scroll, ketemu konten yang viral banget. Hal pertama yang muncul di kepalamu...',
+    opts: [
+      ['Ini beneran atau hoaks ya? Jangan-jangan penipuan.', 'security', '🛡️'],
+      ['Ini dibikin pakai AI nggak sih? Kok keren banget.', 'scientist', '🤖'],
+      ['Angkanya dari mana? Ada buktinya nggak?', 'data', '📊'],
+      ['Gimana ya caranya bikin yang kayak gini sendiri?', 'web', '💻'],
+      ['Kenapa ini bisa meledak? Pasti ada strateginya.', 'marketing', '📣'],
+      ['Visualnya bagus banget, ini pakai gaya apa ya?', 'design', '🎨']
+    ]
+  },
+  {
+    q: 'Lagi nyusun liburan bareng temen-temen. Biasanya kamu yang...',
+    opts: [
+      ['Bikin grup rame dan ngajak semua orang biar semangat', 'marketing', '📣'],
+      ['Mikirin rencana cadangan, takut hujan, telat, atau ada barang ketinggalan', 'security', '🛡️'],
+      ['Nyusun jadwal per jam biar semuanya jalan rapi dan nggak ada yang kelewat', 'web', '💻'],
+      ['Ngusulin rute atau kegiatan yang beda dari biasanya', 'scientist', '🤖'],
+      ['Nyari tempat-tempat paling cakep buat foto', 'design', '🎨'],
+      ['Bandingin harga, ulasan, dan rute sampai nemu yang paling worth it', 'data', '📊']
+    ]
+  },
+  {
+    q: 'Pas lagi stres atau capek banget, yang bikin kamu balik tenang...',
+    opts: [
+      ['Mastiin sekitarku aman dan semuanya terkendali', 'security', '🛡️'],
+      ['Dengerin musik, nonton film, atau ngeliat hal-hal yang indah', 'design', '🎨'],
+      ['Nyoba hal baru yang bikin pikiran jadi fresh lagi', 'scientist', '🤖'],
+      ['Duduk tenang dan mikir pelan-pelan, nyari tahu akar masalahnya', 'data', '📊'],
+      ['Beres-beres sampai semuanya rapi dan tertata', 'web', '💻'],
+      ['Curhat dan ngobrol sama orang terdekat', 'marketing', '📣']
+    ]
+  },
+  {
+    q: 'Kalau kamu nanya ke temen, "menurut kamu aku orangnya kayak gimana?", jawabannya mungkin...',
+    opts: [
+      ['Kamu tuh kreatif dan punya selera sendiri.', 'design', '🎨'],
+      ['Kamu penasaran terus, ide-idenya suka nggak biasa.', 'scientist', '🤖'],
+      ['Kamu gampang akrab dan jago bikin orang percaya.', 'marketing', '📣'],
+      ['Kamu tuh tekun, semuanya dikerjain rapi dan urut.', 'web', '💻'],
+      ['Kamu teliti dan mikirnya masuk akal.', 'data', '📊'],
+      ['Kamu waspada dan bisa banget diandelin.', 'security', '🛡️']
+    ]
+  },
+  {
+    q: 'Misalnya kamu punya kesempatan bikin satu hal buat bantu banyak orang. Kamu bakal bikin...',
+    opts: [
+      ['Aplikasi yang bikin urusan sehari-hari jadi jauh lebih gampang', 'web', '💻'],
+      ['Survei yang nunjukin masalah sebenarnya di sekitar kita, lengkap sama buktinya', 'data', '📊'],
+      ['Kampanye visual yang bikin orang jadi peduli', 'design', '🎨'],
+      ['Sistem yang ngelindungin orang dari penipuan online', 'security', '🛡️'],
+      ['Gerakan online yang bikin banyak orang ikut terlibat', 'marketing', '📣'],
+      ['Asisten pintar yang bisa bantu siapa pun belajar hal baru', 'scientist', '🤖']
+    ]
+  },
+  {
+    q: 'Waktu buka medsos, kamu lebih sering...',
+    opts: [
+      ['Bikin konten dan seneng banget liat yang like, komen, sama share-nya', 'marketing', '📣'],
+      ['Ngintip statistik, siapa aja yang nonton dan jam berapa paling rame', 'data', '📊'],
+      ['Nyobain filter, tren, dan fitur AI yang baru keluar', 'scientist', '🤖'],
+      ['Ngatur privasi dan blokir akun yang kelihatan mencurigakan', 'security', '🛡️'],
+      ['Penasaran gimana fitur-fiturnya bisa jalan di balik layar', 'web', '💻'],
+      ['Ngerapiin feed biar tampilannya enak dan warnanya senada', 'design', '🎨']
+    ]
+  },
+  {
+    q: 'Hal yang paling bikin kamu kesel...',
+    opts: [
+      ['Orang ngomong seenaknya tanpa bukti', 'data', '📊'],
+      ['Pesan penting yang nggak nyampe, atau nggak ada yang mau dengerin', 'marketing', '📣'],
+      ['Kerjaan yang dikerjain asal-asalan terus ditinggal', 'web', '💻'],
+      ['Semuanya harus sama terus, dan nyoba hal baru dianggap salah', 'scientist', '🤖'],
+      ['Orang yang santai banget soal risiko dan aturan keselamatan', 'security', '🛡️'],
+      ['Tampilan atau suasana yang berantakan dan nggak enak dilihat', 'design', '🎨']
+    ]
+  },
+  {
+    q: 'Temenmu minta diajarin sesuatu. Cara kamu ngajarin...',
+    opts: [
+      ['Pakai cerita dan gaya ngobrol biar seru dan gampang nempel', 'marketing', '📣'],
+      ['Pakai gambar, warna, atau contoh yang bisa dilihat langsung', 'design', '🎨'],
+      ['Ngasih tahu kesalahan yang sering kejadian biar dia lebih hati-hati', 'security', '🛡️'],
+      ['Jelasin alasannya dulu biar dia ngerti kenapa harus begitu', 'data', '📊'],
+      ['Ngajak dia coba-coba sendiri sampai nemu caranya', 'scientist', '🤖'],
+      ['Ngasih langkahnya satu per satu sampai dia bisa praktik', 'web', '💻']
+    ]
+  },
+  {
+    q: 'Game atau permainan apa yang bikin kamu betah berjam-jam?',
+    opts: [
+      ['Yang bisa bikin dan ngerakit sesuatu sendiri', 'web', '💻'],
+      ['Yang dunianya luas, bebas dijelajahi, dan boleh coba apa aja', 'scientist', '🤖'],
+      ['Yang dimainin ramean, ngatur tim, dan jadi pemimpinnya', 'marketing', '📣'],
+      ['Yang visual dan karakternya cakep, bisa didandanin sesuka hati', 'design', '🎨'],
+      ['Yang harus bertahan hidup dan jagain markas dari serangan', 'security', '🛡️'],
+      ['Yang butuh strategi, hitung-hitungan peluang, dan atur sumber daya', 'data', '📊']
+    ]
+  },
+  {
+    q: 'Bayangin hari kerja yang paling kamu banget. Isinya...',
+    opts: [
+      ['Ngulik ide dan hal baru tiap hari', 'scientist', '🤖'],
+      ['Menggali informasi sampai nemu kesimpulan yang tajam', 'data', '📊'],
+      ['Mastiin semuanya berjalan aman tanpa kejutan yang nggak enak', 'security', '🛡️'],
+      ['Ketemu banyak orang, ngobrol, dan nyari peluang bareng', 'marketing', '📣'],
+      ['Ngerjain proyek yang hasilnya makin kelihatan dari hari ke hari', 'web', '💻'],
+      ['Berkarya dan bebas ngeluarin selera sendiri', 'design', '🎨']
+    ]
+  },
+  {
+    q: 'Kalau dikasih satu kekuatan super, kamu mau...',
+    opts: [
+      ['Nyulap sekitar jadi seindah yang ada di bayanganmu', 'design', '🎨'],
+      ['Bisa bikin atau benerin apa pun dalam sekejap', 'web', '💻'],
+      ['Bikin semua orang langsung paham dan percaya sama kamu', 'marketing', '📣'],
+      ['Ngelindungin orang-orang tersayang dari bahaya apa pun', 'security', '🛡️'],
+      ['Langsung tahu kebenaran di balik setiap kejadian', 'data', '📊'],
+      ['Ngintip masa depan dan nemuin penemuan sebelum orang lain', 'scientist', '🤖']
+    ]
+  },
+  {
+    q: 'Lagi heboh teknologi baru, misalnya AI. Reaksi kamu...',
+    opts: [
+      ['Nyari tahu dulu: ini beneran berguna atau cuma hype?', 'data', '📊'],
+      ['Kepikiran risikonya, terus gimana caranya biar nggak disalahgunain', 'security', '🛡️'],
+      ['Langsung nyoba, penasaran banget sampai mana batas kemampuannya', 'scientist', '🤖'],
+      ['Pengin ngerti cara kerjanya, terus nyoba bikin sesuatu pakai itu', 'web', '💻'],
+      ['Penasaran, bisa dipakai buat bikin karya visual apa aja ya?', 'design', '🎨'],
+      ['Mikirin cara ngenalin dan nawarinnya ke banyak orang', 'marketing', '📣']
+    ]
+  },
+  {
+    q: 'Beberapa tahun lagi, kamu pengin ngerasa...',
+    opts: [
+      ['Berpengaruh, karena banyak orang yang dengerin dan percaya sama kamu', 'marketing', '📣'],
+      ['Dikenal, karena karyamu punya ciri khas', 'design', '🎨'],
+      ['Bangga jadi yang pertama nemuin hal baru', 'scientist', '🤖'],
+      ['Bangga, karena bisa bikin sesuatu yang berguna dan awet', 'web', '💻'],
+      ['Tenang, karena kamu dan orang-orang terdekatmu terlindungi', 'security', '🛡️'],
+      ['Dihormati, karena pendapatmu selalu tepat dan ada dasarnya', 'data', '📊']
+    ]
+  }
 ];
-
 
 
 const QUESTIONS_PER_PAGE = 5;
@@ -648,16 +752,38 @@ let quizLoadedFromSupabase = false;
 
 
 
-function normalizeOption(row, fallbackCategory='web') {
+const CATEGORY_MAP = {
+  PRG: 'web',
+  DAT: 'data',
+  DSN: 'design',
+  MKT: 'marketing',
+  SEC: 'security',
+  AI: 'scientist'
+};
 
-  const text = row.option_text ?? row.text ?? row.answer_text ?? row.label ?? row.option ?? '';
+function normalizeOption(row, fallbackCategory = 'web') {
+  const text =
+    row.option_text ??
+    row.text ??
+    row.answer_text ??
+    row.label ??
+    row.option ??
+    '';
 
-  const cat = row.category ?? row.cat ?? row.result_category ?? fallbackCategory;
+  const rawCategory = String(
+    row.category ??
+    row.cat ??
+    row.result_category ??
+    fallbackCategory
+  );
+
+  const cat =
+    CATEGORY_MAP[rawCategory.toUpperCase()] ||
+    rawCategory;
 
   const emoji = row.emoji ?? row.icon ?? '•';
 
   return [String(text), String(cat), String(emoji)];
-
 }
 
 
@@ -952,64 +1078,52 @@ function nextQuestion(){
 
 
 
-async function computeResult(){
+async function computeResult() {
+  const scores = {
+    web: 0,
+    data: 0,
+    design: 0,
+    marketing: 0,
+    security: 0,
+    scientist: 0
+  };
 
-  const scores = {web:0,data:0,scientist:0,marketing:0,security:0};
-
-  answers.forEach((idx,qi)=>{
-
-    if(idx===null) return;
+  answers.forEach((idx, qi) => {
+    if (idx === null) return;
 
     const cat = QUESTIONS[qi].opts[idx][1];
 
-    scores[cat] = (scores[cat]||0) + 1;
-
-  });
-
-
-
-  let top = 'web', max = -1;
-
-  Object.keys(scores).forEach(k=>{
-
-    if(scores[k]>max){
-
-      max=scores[k];
-
-      top=k;
-
+    if (Object.prototype.hasOwnProperty.call(scores, cat)) {
+      scores[cat]++;
     }
-
   });
 
+  let top = 'web';
+  let max = -1;
 
+  Object.keys(scores).forEach(key => {
+    if (scores[key] > max) {
+      max = scores[key];
+      top = key;
+    }
+  });
 
-  const sorted = Object.keys(scores).sort((a,b)=>scores[b]-scores[a]);
-
-
+  const sorted = Object.keys(scores).sort(
+    (a, b) => scores[b] - scores[a]
+  );
 
   try {
-
     await saveQuizResultToSupabase(top, scores);
-
-  } catch(error) {
-
+  } catch (error) {
     console.error('Gagal menyimpan hasil quiz:', error);
-
-    alert('Hasil quiz belum tersimpan ke database. Cek Console (F12) untuk detail error.');
-
+    alert(
+      'Hasil quiz belum tersimpan ke database. Cek Console (F12) untuk detail error.'
+    );
   }
 
-
-
   renderResult(top, sorted, scores);
-
   showView('view-result');
-
-
-
   runAiAnalysis(top, scores);
-
 }
 
 
