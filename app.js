@@ -1225,13 +1225,7 @@ async function runAiAnalysis(topKey, rawScores){
 
         attempt_id: currentAttemptId,
 
-        name: userName,
-
-        top_category: topKey,
-
-        scores: rawScores,
-
-        answers: answerPayload
+        submissionToken: currentSubmissionToken
 
       }
 
