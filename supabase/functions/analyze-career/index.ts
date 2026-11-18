@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     // 1. Verifikasi: attempt harus ada DAN token harus cocok.
     const { data: attempt, error: attemptError } = await supabase
       .from("quiz_attempts")
-      .select("id, user_id, status, ai_analysis")
+      .select("id, user_id, status, ai_analysis, participant_name")
       .eq("id", attemptId)
       .eq("submission_token", submissionToken)
       .maybeSingle();
@@ -118,8 +118,11 @@ Deno.serve(async (req: Request) => {
       questionText.set(q.question_number, String(q.question_text ?? ""));
     }
 
+    // Nama diambil dari attempt ini (diisi saat daftar); attempt lama memakai nama di users.
     let userName = "Peserta";
-    if (attempt.user_id != null) {
+    if (attempt.participant_name) {
+      userName = String(attempt.participant_name).slice(0, 100);
+    } else if (attempt.user_id != null) {
       const { data: user } = await supabase
         .from("users")
         .select("name")
