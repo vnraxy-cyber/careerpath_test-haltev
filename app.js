@@ -103,6 +103,7 @@ let userPhone = '';
 let currentUserId = null;
 let currentAttemptId = null;
 let currentSubmissionToken = null;
+let isSubmittingResult = false;
 
 try { localStorage.removeItem('nama'); } catch(err) {}
 
@@ -291,70 +292,82 @@ async function saveQuizResultToSupabase(topKey, rawScores) {
     throw new Error('Tidak ada jawaban yang dapat disimpan.');
   }
 
-  try {
-    const { error: answerError } = await supabaseClient
-      .from('quiz_answers')
-      .insert(answerRows);
-
-    if (answerError) {
-      throw answerError;
-    }
-
-    const { error: updateError } = await supabaseClient
-      .from('quiz_attempts')
-      .update({
-        completed_at: new Date().toISOString(),
-        status: 'completed',
-        top_category: topKey,
-        scores: rawScores
-      })
-      .eq('id', currentAttemptId);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    console.log('Jawaban kuis berhasil disimpan ke database local.');
-    return;
-  } catch (dbError) {
-    console.warn(
-      'Insert langsung ke tabel gagal, mencoba Edge Function fallback:',
-      dbError
-    );
-  }
-
   if (!currentSubmissionToken) {
     throw new Error(
       'Token pengiriman tidak tersedia. Silakan mulai kuis kembali.'
     );
   }
 
-  const { data, error } = await supabaseClient.functions.invoke(
-    'submit-career-quiz',
+// ===============================
+// 1. SUBMIT JAWABAN QUIZ
+// ===============================
+
+const { data, error } = await supabaseClient.functions.invoke(
+  'submit-career-quiz',
+  {
+    body: {
+      attemptId: currentAttemptId,
+      submissionToken: currentSubmissionToken,
+      answers: answerRows,
+      topKey,
+      scores: rawScores
+    }
+  }
+);
+
+if (error) {
+  console.error('Gagal submit quiz:', error);
+  throw error;
+}
+
+if (!data?.success) {
+  throw new Error(
+    data?.error || 'Gagal menyimpan jawaban quiz.'
+  );
+}
+
+console.log('Jawaban berhasil disimpan:', data);
+
+
+// ===============================
+// 2. GENERATE ANALISIS AI
+// ===============================
+
+const { data: analysisData, error: analysisError } =
+  await supabaseClient.functions.invoke(
+    'analyze-career',
     {
       body: {
-        attemptId: currentAttemptId,
-        submissionToken: currentSubmissionToken,
-        answers: answerRows,
-        topKey,
-        scores: rawScores
+        attempt_id: currentAttemptId,
+        submissionToken: currentSubmissionToken
       }
     }
   );
 
-  if (error) {
-    console.error('Gagal mengirim hasil kuis:', error);
-    throw new Error(
-      'Hasil kuis gagal disimpan. Periksa log Edge Function.'
-    );
-  }
+if (analysisError) {
+  console.error(
+    'Gagal menjalankan analisis AI:',
+    analysisError
+  );
 
-  if (!data?.success) {
-    console.error('Respons penyimpanan tidak sesuai:', data);
-    throw new Error(
-      data?.error || 'Server belum mengonfirmasi penyimpanan hasil.'
-    );
-  }
+  throw analysisError;
+}
+
+if (!analysisData?.success) {
+  throw new Error(
+    analysisData?.error || 'Gagal menghasilkan analisis AI.'
+  );
+}
+
+console.log('Hasil analisis AI:', analysisData.analysis);
+
+
+// ===============================
+// 3. TAMPILKAN HASIL ANALISIS
+// ===============================
+
+// Simpan hasil analisis untuk ditampilkan
+const careerAnalysis = analysisData.analysis;
 
   console.log('Jawaban kuis berhasil disimpan melalui server.');
 }
@@ -1079,6 +1092,12 @@ function nextQuestion(){
 
 
 async function computeResult() {
+  if (isSubmittingResult) return;
+  isSubmittingResult = true;
+
+  const nextBtn = document.getElementById('btn-next');
+  if (nextBtn) nextBtn.disabled = true;
+
   const scores = {
     web: 0,
     data: 0,
@@ -1119,6 +1138,8 @@ async function computeResult() {
     alert(
       'Hasil quiz belum tersimpan ke database. Cek Console (F12) untuk detail error.'
     );
+  } finally {
+    isSubmittingResult = false;
   }
 
   renderResult(top, sorted, scores);
