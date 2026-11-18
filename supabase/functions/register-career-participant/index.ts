@@ -87,13 +87,24 @@ Deno.serve(async (req) => {
 
     const { data: existingUser, error: findError } = await supabase
       .from("users")
-      .select("id")
+      .select("id, name")
       .eq("phone", cleanPhone)
       .maybeSingle();
 
     if (findError) throw findError;
 
     let userId = existingUser?.id;
+
+    // Nomor HP sudah terdaftar: pakai nama yang diisi terakhir supaya hasil
+    // analisis menyebut nama peserta yang sedang mengikuti tes.
+    if (userId && existingUser?.name !== cleanName) {
+      const { error: nameError } = await supabase
+        .from("users")
+        .update({ name: cleanName })
+        .eq("id", userId);
+
+      if (nameError) throw nameError;
+    }
 
     // Batas per nomor HP: cegah satu nomor membuat attempt berulang-ulang.
     if (userId) {
