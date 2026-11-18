@@ -232,8 +232,17 @@ async function saveUserAndAttempt() {
 
   if (error) {
     console.error('Edge Function pendaftaran gagal:', error);
+
+    let serverMessage = '';
+    try {
+      const body = await error?.context?.json?.();
+      if (error?.context?.status === 429 && body?.error) {
+        serverMessage = body.error;
+      }
+    } catch (e) {}
+
     throw new Error(
-      'Pendaftaran gagal. Periksa Logs pada register-career-participant.'
+      serverMessage || 'Pendaftaran gagal. Silakan coba lagi.'
     );
   }
 
